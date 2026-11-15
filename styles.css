@@ -1,0 +1,40 @@
+:root{--carbon:#333333;--perla:#F4F4F2;--blanco:#FFFFFF;--linea:#D9D9D6;--gris:#5F5F5C;--champagne:#B9A58A}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+body{font-family:'Jost',system-ui,sans-serif;color:var(--carbon);background:var(--perla);line-height:1.55;min-height:100dvh}
+.pagina{max-width:460px;margin:0 auto;padding:40px 24px 56px;min-height:100dvh;display:flex;flex-direction:column;align-items:center}
+.sello{width:min(300px,78vw);aspect-ratio:1;border-radius:50%;background:var(--carbon);color:var(--blanco);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.sello .marca{font-size:.95rem;font-weight:500;letter-spacing:.5em;padding-left:.5em}
+.sello .firma{font-family:'Mrs Saint Delafield','Snell Roundhand',cursive;font-size:4.6rem;line-height:.9;margin:0 0 8px}
+.sello .tag{font-size:.68rem;font-weight:300;letter-spacing:.36em;padding-left:.36em;white-space:nowrap}
+.sello hr{width:62%;border:0;border-top:1px solid rgba(255,255,255,.45);margin-top:12px}
+.bajada{margin:30px 0 6px;text-align:center;font-size:1.02rem}
+.aval{margin-bottom:28px;text-align:center;color:var(--gris);font-size:.92rem}
+.acciones{width:100%;display:flex;flex-direction:column;gap:12px}
+.btn{display:block;width:100%;padding:16px 20px;font:inherit;font-weight:500;letter-spacing:.03em;text-align:center;text-decoration:none;border:1px solid var(--carbon);border-radius:999px;cursor:pointer;transition:background .2s,color .2s}
+.btn-solido{background:var(--carbon);color:var(--blanco)}
+.btn-solido:hover{background:#1f1f1f}
+.btn-contorno{background:transparent;color:var(--carbon)}
+.btn-contorno:hover{background:var(--carbon);color:var(--blanco)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn:focus-visible,.opcion:focus-visible,.link:focus-visible{outline:2px solid var(--champagne);outline-offset:3px}
+.nota{text-align:center;color:var(--gris);font-size:.88rem;margin-top:-2px}
+.campo{margin-bottom:16px}
+.campo label{display:block;font-size:.9rem;color:var(--gris);margin-bottom:6px}
+.campo input{width:100%;padding:14px 16px;font:inherit;font-size:1rem;color:var(--carbon);background:var(--blanco);border:1px solid var(--linea);border-radius:10px}
+.campo input:focus{outline:2px solid var(--champagne);outline-offset:1px;border-color:var(--carbon)}
+.msg{min-height:1.4em;margin-top:10px;font-size:.92rem;color:#8A3B3B}
+.msg a{color:inherit}
+.link{background:none;border:0;font:inherit;color:var(--gris);cursor:pointer;text-decoration:underline;padding:4px 0}
+/* diagnóstico */
+.diag{width:100%}
+.tope{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-size:.88rem;color:var(--gris)}
+.barra{height:2px;background:var(--linea)}
+.barra i{display:block;height:100%;width:0;background:var(--carbon);transition:width .3s}
+h1{font-weight:300;font-size:1.65rem;line-height:1.25;margin:28px 0 14px}
+.intro{color:var(--gris);margin-bottom:24px}
+.opcion{display:block;width:100%;text-align:left;padding:16px 18px;margin-bottom:10px;font:inherit;color:var(--carbon);background:var(--blanco);border:1px solid var(--linea);border-radius:10px;cursor:pointer;transition:border-color .15s}
+.opcion:hover{border-color:var(--carbon)}
+.opcion.sel{border-color:var(--carbon);box-shadow:inset 4px 0 0 var(--champagne)}
+.firma-chica{font-family:'Mrs Saint Delafield','Snell Roundhand',cursive;font-size:3.4rem;line-height:1;font-weight:400}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diagnóstico capilar | Agustín Laurenza</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&family=Mrs+Saint+Delafield&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="pagina"><div class="diag">
+
+  <section class="pantalla" id="p-datos">
+    <div class="tope"><a class="link" href="index.html">Volver al inicio</a></div>
+    <h1>Hola, empecemos</h1>
+    <p class="intro">Necesitamos que respondas este cuestionario para realizar un diagnóstico preciso y brindarte un servicio personalizado.</p>
+    <form id="f-datos" novalidate>
+      <div class="campo"><label for="nombre">Nombre y apellido</label><input id="nombre" autocomplete="name"></div>
+      <div class="campo"><label for="celular">Celular, con código de área y solo números</label><input id="celular" inputmode="numeric" autocomplete="tel-national"></div>
+      <div class="campo"><label for="dni">DNI (opcional)</label><input id="dni" inputmode="numeric"></div>
+      <button class="btn btn-solido" type="submit">Comenzar</button>
+      <p class="msg" id="msg-datos" role="alert"></p>
+    </form>
+  </section>
+
+  <section class="pantalla" id="p-pregunta" hidden>
+    <div class="tope"><button class="link" id="atras" type="button">Atrás</button><span id="progreso-txt"></span></div>
+    <div class="barra"><i id="barra"></i></div>
+    <h1 id="q-titulo"></h1>
+    <div id="q-opciones"></div>
+  </section>
+
+  <section class="pantalla" id="p-guardando" hidden><h1>Guardando tus respuestas…</h1></section>
+
+  <section class="pantalla" id="p-fin" hidden>
+    <p class="firma-chica" id="fin-nombre"></p>
+    <h1>Gracias por tus respuestas</h1>
+    <p class="intro">Con esto ya podemos preparar tu servicio. En el salón se revisa tu cabello antes de empezar y, si hace falta, se conversan otras opciones: la salud de tu cabello y de tu cuero cabelludo va primero.</p>
+    <a class="btn btn-solido" href="reservar.html">Elegir mi turno</a>
+  </section>
+
+  <section class="pantalla" id="p-error" hidden>
+    <h1>No pudimos guardar tus datos</h1>
+    <p class="intro" id="error-txt"></p>
+    <button class="btn btn-solido" id="reintentar" type="button">Volver a intentar</button>
+  </section>
+
+</div></main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const PREGUNTAS = [
+  { k:'textura', t:'¿Cuál es tu textura capilar natural?', o:['Lisa','Ondulada','Rizada','Afro'] },
+  { k:'color_natural', t:'¿Cuál es tu color natural?', o:['Rubio','Castaño','Negro u oscuro'] },
+  { k:'estado', t:'¿Cuál es el estado actual de tu cabello?', o:['Natural','Con mechas, decolorado o iluminación','Con tintura','Alisado, permanente, botox o keratina'] },
+  { k:'ultimo_tratamiento', t:'¿Cuándo te hiciste el último tratamiento?', o:['Hace 1 mes','Hace 3 meses','Hace más de 6 meses'], si: r => r.estado !== 'Natural' },
+  { k:'largo', t:'¿Qué largo tiene tu cabello?', o:['No supera el mentón','No supera los hombros','Supera los omóplatos'] },
+  { k:'ultimo_corte', t:'¿Cuándo fue la última vez que te cortaste el cabello?', o:['Hace 1 mes','Hace 3 meses','Hace más de 6 meses'] },
+  { k:'caida', t:'Cuando te cepillas, ¿notas que se te cae el cabello?', o:['Sí','No'] },
+  { k:'puntas', t:'¿Cómo están tus puntas?', o:['Las veo saludables','Las veo abiertas','Las veo ásperas'] },
+  { k:'cuero_cabelludo', t:'¿Cómo describirías tu cuero cabelludo?', o:['Saludable','Con picor','Con descamación o caspa','Algo seco o tenso','Graso'] },
+  { k:'preocupacion', t:'¿Cuál es tu principal preocupación?', o:['Caída del cabello','Mantenimiento del color o decoloración','Sensibilidad del cuero cabelludo','Cabello dañado, apagado o desvitalizado'] },
+  { k:'kscan', t:'¿Quieres hacerte un K-Scan (scanner Kérastase) en el salón?', o:['Sí, claro','No estoy segura, quiero más información'] }
+];
+let resp = {}, i = 0, cliente = {};
+const vis = () => PREGUNTAS.filter(p => !p.si || p.si(resp));
+const mostrar = id => { document.querySelectorAll('.pantalla').forEach(e => e.hidden = e.id !== id); window.scrollTo(0, 0); };
+
+function pregunta() {
+  const v = vis(), p = v[i];
+  $('#barra').style.width = (i / v.length * 100) + '%';
+  $('#progreso-txt').textContent = 'Pregunta ' + (i + 1) + ' de ' + v.length;
+  $('#q-titulo').textContent = p.t;
+  const cont = $('#q-opciones'); cont.innerHTML = '';
+  p.o.forEach(txt => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'opcion' + (resp[p.k] === txt ? ' sel' : '');
+    b.textContent = txt;
+    b.onclick = () => { resp[p.k] = txt; b.classList.add('sel'); setTimeout(avanzar, 180); };
+    cont.appendChild(b);
+  });
+  mostrar('p-pregunta');
+}
+function avanzar() { if (i < vis().length - 1) { i++; pregunta(); } else guardar(); }
+$('#atras').onclick = () => { if (i > 0) { i--; pregunta(); } else mostrar('p-datos'); };
+
+$('#f-datos').onsubmit = e => {
+  e.preventDefault();
+  const nombre = $('#nombre').value.trim();
+  const celular = $('#celular').value.replace(/\D/g, '');
+  const dni = $('#dni').value.replace(/\D/g, '');
+  const msg = $('#msg-datos');
+  if (nombre.length < 3) { msg.textContent = 'Escribe tu nombre y apellido.'; return; }
+  if (celular.length < 8) { msg.textContent = 'Escribe tu celular con código de área, solo números.'; return; }
+  msg.textContent = '';
+  cliente = { nombre, celular, dni: dni || null };
+  i = 0; pregunta();
+};
+
+async function guardar() {
+  mostrar('p-guardando');
+  const id = crypto.randomUUID();
+  const respuestas = {}; vis().forEach(p => respuestas[p.k] = resp[p.k]);
+  try {
+    const a = await db.from('clientes').insert({ id, nombre: cliente.nombre, celular: cliente.celular, dni: cliente.dni, es_nueva: true });
+    if (a.error) throw a.error;
+    const b = await db.from('diagnosticos').insert({ cliente_id: id, respuestas });
+    if (b.error) throw b.error;
+    sessionStorage.setItem('cliente', JSON.stringify({ id, nombre: cliente.nombre }));
+    $('#fin-nombre').textContent = cliente.nombre.split(' ')[0];
+    mostrar('p-fin');
+  } catch (err) {
+    $('#error-txt').textContent = (err && err.code === '23505')
+      ? 'Ya existe una clienta con ese celular o DNI. Vuelve al inicio y elige “Ya soy clienta”.'
+      : 'Revisa tu conexión y vuelve a intentar. Tus respuestas siguen en esta pantalla.';
+    mostrar('p-error');
+  }
+}
+$('#reintentar').onclick = guardar;
+</script>
+</body>
+</html>

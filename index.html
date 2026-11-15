@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agustín Laurenza | Salón exclusivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&family=Mrs+Saint+Delafield&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="pagina">
+  <div class="sello" role="img" aria-label="Agustín Laurenza, salón exclusivo">
+    <span class="marca">AGUSTÍN</span>
+    <span class="firma">Laurenza</span>
+    <span class="tag">SALÓN EXCLUSIVO</span>
+    <hr>
+  </div>
+  <p class="bajada">Colorista profesional, experto en French Balayage y mechas. Care Coach Kérastase Argentina.</p>
+  <p class="aval">Salón exclusivo L’Oréal Professionnel y Kérastase Paris.</p>
+
+  <div class="acciones">
+    <button class="btn btn-solido" id="b-habitual" type="button" aria-expanded="false" aria-controls="f-habitual">Ya soy clienta</button>
+    <form id="f-habitual" hidden>
+      <div class="campo">
+        <label for="dato">Tu DNI o número de celular</label>
+        <input id="dato" inputmode="numeric" autocomplete="off" placeholder="Solo números">
+      </div>
+      <button class="btn btn-solido" id="b-buscar" type="submit">Buscar mis datos</button>
+      <p class="msg" id="msg" role="alert"></p>
+    </form>
+    <a class="btn btn-contorno" href="diagnostico.html">Es mi primera vez</a>
+    <p class="nota">Te hacemos 11 preguntas sobre tu cabello para preparar tu servicio.</p>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+$('#b-habitual').onclick = () => {
+  const f = $('#f-habitual'), abrir = f.hidden;
+  f.hidden = !abrir;
+  $('#b-habitual').setAttribute('aria-expanded', abrir);
+  if (abrir) $('#dato').focus();
+};
+$('#f-habitual').onsubmit = async e => {
+  e.preventDefault();
+  const msg = $('#msg'), btn = $('#b-buscar');
+  const dato = $('#dato').value.replace(/\D/g, '');
+  msg.textContent = '';
+  if (dato.length < 7) { msg.textContent = 'Escribe tu DNI o celular, solo números.'; return; }
+  btn.disabled = true; btn.textContent = 'Buscando…';
+  const { data, error } = await db.rpc('buscar_cliente', { dato });
+  btn.disabled = false; btn.textContent = 'Buscar mis datos';
+  if (error) { msg.textContent = 'No pudimos conectar. Revisa tu conexión y vuelve a intentar.'; return; }
+  if (!data || !data.length) {
+    msg.innerHTML = 'No encontramos ese dato. Si es tu primera vez, <a href="diagnostico.html">completa el diagnóstico</a>.';
+    return;
+  }
+  sessionStorage.setItem('cliente', JSON.stringify({ id: data[0].id, nombre: data[0].nombre }));
+  location.href = 'reservar.html';
+};
+</script>
+</body>
+</html>
