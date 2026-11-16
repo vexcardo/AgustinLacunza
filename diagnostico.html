@@ -112,6 +112,7 @@ async function guardar() {
     const b = await db.from('diagnosticos').insert({ cliente_id: id, respuestas });
     if (b.error) throw b.error;
     sessionStorage.setItem('cliente', JSON.stringify({ id, nombre: cliente.nombre }));
+    sessionStorage.setItem('largo', respuestas.largo || '');
     $('#fin-nombre').textContent = cliente.nombre.split(' ')[0];
     mostrar('p-fin');
   } catch (err) {

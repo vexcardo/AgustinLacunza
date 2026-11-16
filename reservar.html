@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reservar turno | Agustín Laurenza</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&family=Mrs+Saint+Delafield&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+.grupo{font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gris);margin:22px 0 10px}
+.det{display:block;margin-top:4px;font-size:.88rem;color:var(--gris)}
+.dias{display:flex;gap:8px;overflow-x:auto;padding:4px 0 8px;margin-bottom:6px}
+.dia,.hora{font:inherit;color:var(--carbon);background:var(--blanco);border:1px solid var(--linea);border-radius:10px;cursor:pointer;transition:border-color .15s}
+.dia{flex:0 0 auto;min-width:68px;padding:10px 12px;text-align:center}
+.dia:hover,.hora:hover{border-color:var(--carbon)}
+.dia.sel,.hora.sel{background:var(--carbon);color:var(--blanco);border-color:var(--carbon)}
+.horas{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}
+.hora{padding:12px 0}
+.resumen{background:var(--blanco);border:1px solid var(--linea);border-radius:10px;padding:6px 18px;margin:20px 0}
+.resumen div{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--linea)}
+.resumen div:last-child{border-bottom:0}
+.resumen span:first-child{color:var(--gris)}
+.resumen span:last-child{text-align:right}
+.aviso{font-size:.88rem;color:var(--gris);margin-bottom:20px}
+.dia:focus-visible,.hora:focus-visible{outline:2px solid var(--champagne);outline-offset:3px}
+</style>
+</head>
+<body>
+<main class="pagina"><div class="diag">
+
+  <section class="pantalla" id="p-cargando"><h1>Cargando…</h1></section>
+
+  <section class="pantalla" id="p-servicios" hidden>
+    <p class="firma-chica" id="saludo"></p>
+    <h1>Elige tu servicio</h1>
+    <div id="lista"></div>
+  </section>
+
+  <section class="pantalla" id="p-fecha" hidden>
+    <div class="tope"><button class="link" id="atras-1" type="button">Cambiar servicio</button></div>
+    <h1 id="f-servicio"></h1>
+    <p class="intro" id="f-dur"></p>
+    <div class="dias" id="dias" role="group" aria-label="Días disponibles"></div>
+    <p id="f-titulo-dia"></p>
+    <div class="horas" id="horas" role="group" aria-label="Horarios disponibles"></div>
+    <p class="msg" id="msg-fecha" role="alert"></p>
+  </section>
+
+  <section class="pantalla" id="p-confirmar" hidden>
+    <div class="tope"><button class="link" id="atras-2" type="button">Cambiar horario</button></div>
+    <h1>Confirma tu turno</h1>
+    <div class="resumen" id="resumen"></div>
+    <p class="aviso">Tu turno queda reservado como pendiente y se confirma al abonar la seña. La duración es una estimación: Agustín revisa tu cabello en el salón y, si hace falta, conversa otras opciones con vos.</p>
+    <button class="btn btn-solido" id="reservar" type="button">Reservar turno</button>
+    <p class="msg" id="msg-conf" role="alert"></p>
+  </section>
+
+  <section class="pantalla" id="p-listo" hidden>
+    <p class="firma-chica">Gracias</p>
+    <h1>Tu turno quedó reservado</h1>
+    <div class="resumen" id="resumen-final"></div>
+    <p class="aviso">Para confirmarlo, abona la seña indicada. Si necesitas cambiar algo, escribinos.</p>
+    <a class="btn btn-solido" id="wsp" href="#" hidden>Enviar mensaje por WhatsApp</a>
+    <a class="btn btn-contorno" href="index.html" style="margin-top:12px">Volver al inicio</a>
+  </section>
+
+  <section class="pantalla" id="p-error" hidden>
+    <h1>Algo salió mal</h1>
+    <p class="intro" id="error-txt"></p>
+    <button class="btn btn-solido" id="reintentar" type="button">Volver a intentar</button>
+  </section>
+
+</div></main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+// Completá con el WhatsApp del salón (código de país, sin + ni espacios, ej: 5493772123456). Vacío = no se muestra el botón.
+const WHATSAPP = '';
+
+const $ = s => document.querySelector(s);
+const cliente = JSON.parse(sessionStorage.getItem('cliente') || 'null');
+if (!cliente) location.replace('index.html');
+
+const GRUPOS = { express: 'Express y mantenimiento', tintura: 'Con tintura', decoloracion: 'Con decoloración' };
+const DIAS_ADELANTE = 28;
+let SERV = [], HOR = [], CUP = {};
+let S = null, DUR = 0, FECHA = null, SLOT = null;
+
+const mostrar = id => { document.querySelectorAll('.pantalla').forEach(e => e.hidden = e.id !== id); window.scrollTo(0, 0); };
+const mins = s => { const [h, m] = s.split(':'); return +h * 60 + +m; };
+const pad = n => String(n).padStart(2, '0');
+const hhmm = m => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
+const ts = (f, m) => new Date(f + 'T' + hhmm(m) + ':00-03:00').getTime();   // Argentina: UTC-3 todo el año
+const plata = n => '$' + Number(n).toLocaleString('es-AR');
+const durTxt = m => (m >= 60 ? Math.floor(m / 60) + ' h' : '') + (m % 60 ? ' ' + (m % 60) + ' min' : '');
+const fechaStr = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+
+function sena(s) {
+  if (s.sena_tipo === 'fijo') return Number(s.sena_valor);
+  return s.precio ? Math.round(s.precio * s.sena_valor / 100) : null;
+}
+function duracion(s) {
+  const mn = s.duracion_min, mx = s.duracion_max || mn;
+  if (mx === mn) return mn;
+  const f = { 'No supera el mentón': 0, 'No supera los hombros': .5, 'Supera los omóplatos': 1 }[sessionStorage.getItem('largo')];
+  return Math.round((mn + (mx - mn) * (f === undefined ? .5 : f)) / 30) * 30;
+}
+function fila(a, b) { const d = document.createElement('div'); const x = document.createElement('span'), y = document.createElement('span'); x.textContent = a; y.textContent = b; d.append(x, y); return d; }
+
+async function iniciar() {
+  mostrar('p-cargando');
+  try {
+    const [a, b, c] = await Promise.all([
+      db.from('servicios').select('*').eq('activo', true).order('orden'),
+      db.from('horarios').select('*'),
+      db.from('cupos').select('*')
+    ]);
+    if (a.error || b.error || c.error) throw new Error('carga');
+    SERV = a.data; HOR = b.data; c.data.forEach(x => CUP[x.categoria] = x);
+    $('#saludo').textContent = 'Hola, ' + cliente.nombre.split(' ')[0];
+    dibujarServicios();
+    mostrar('p-servicios');
+  } catch (e) { error('No pudimos cargar los servicios. Revisa tu conexión y vuelve a intentar.'); }
+}
+function error(t) { $('#error-txt').textContent = t; mostrar('p-error'); }
+$('#reintentar').onclick = iniciar;
+
+function dibujarServicios() {
+  const cont = $('#lista'); cont.innerHTML = '';
+  Object.keys(GRUPOS).forEach(cat => {
+    const items = SERV.filter(s => s.categoria === cat);
+    if (!items.length) return;
+    const h = document.createElement('p'); h.className = 'grupo'; h.textContent = GRUPOS[cat]; cont.appendChild(h);
+    items.forEach(s => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'opcion';
+      const n = document.createElement('strong'); n.style.fontWeight = 500; n.textContent = s.nombre;
+      const d = document.createElement('span'); d.className = 'det';
+      const sn = sena(s);
+      d.textContent = durTxt(duracion(s)) + ' · ' + (s.precio ? plata(s.precio) : 'Precio a confirmar') + (sn ? ' · Seña ' + plata(sn) : '');
+      b.append(n, d);
+      b.onclick = () => elegirServicio(s);
+      cont.appendChild(b);
+    });
+  });
+}
+
+function elegirServicio(s) {
+  S = s; DUR = duracion(s); FECHA = null; SLOT = null;
+  $('#f-servicio').textContent = s.nombre;
+  $('#f-dur').textContent = 'Duración estimada: ' + durTxt(DUR) + '. Elige el día y el horario.';
+  $('#horas').innerHTML = ''; $('#f-titulo-dia').textContent = ''; $('#msg-fecha').textContent = '';
+  const cont = $('#dias'); cont.innerHTML = '';
+  const abiertos = new Set(HOR.map(h => h.dia_semana));
+  const hoy = new Date();
+  for (let i = 0; i < DIAS_ADELANTE; i++) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + i);
+    if (!abiertos.has(d.getDay())) continue;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'dia';
+    b.textContent = d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' });
+    b.onclick = () => { cont.querySelectorAll('.dia').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); elegirDia(d); };
+    cont.appendChild(b);
+  }
+  mostrar('p-fecha');
+}
+$('#atras-1').onclick = () => mostrar('p-servicios');
+
+function slotsDelDia(fecha, dow, ocupados) {
+  const fr = HOR.filter(h => h.dia_semana === dow).sort((a, b) => mins(a.desde) - mins(b.desde));
+  if (!fr.length) return [];
+  const finDia = mins(fr[fr.length - 1].hasta), cup = CUP[S.categoria] || {}, out = [];
+  fr.forEach(f => {
+    const hasta = mins(f.hasta), limite = S.categoria === 'decoloracion' ? finDia : hasta;
+    for (let t = mins(f.desde); t < hasta; t += 30) {
+      const fin = t + DUR;
+      if (fin > limite) break;
+      if (cup.primer_horario && t < mins(cup.primer_horario)) continue;
+      if (cup.ultimo_horario && t > mins(cup.ultimo_horario)) continue;
+      const i = ts(fecha, t), fn = ts(fecha, fin);
+      if (i < Date.now() + 3600000) continue;
+      if (ocupados.some(o => i < o.f && fn > o.i)) continue;
+      out.push({ t, fin });
+    }
+  });
+  return out;
+}
+
+async function elegirDia(d) {
+  FECHA = fechaStr(d); SLOT = null;
+  const cont = $('#horas'), msg = $('#msg-fecha'); cont.innerHTML = ''; msg.textContent = '';
+  $('#f-titulo-dia').textContent = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const { data, error: err } = await db.rpc('turnos_ocupados', { dia: FECHA });
+  if (err) { msg.textContent = 'No pudimos ver los horarios. Vuelve a intentar.'; return; }
+  const ocupados = (data || []).map(o => ({ i: new Date(o.inicio).getTime(), f: new Date(o.fin).getTime() }));
+  const slots = slotsDelDia(FECHA, d.getDay(), ocupados);
+  if (!slots.length) { msg.textContent = 'No hay horarios disponibles ese día para este servicio. Prueba con otro día.'; return; }
+  slots.forEach(s => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'hora'; b.textContent = hhmm(s.t);
+    b.onclick = () => { SLOT = s; confirmar(d); };
+    cont.appendChild(b);
+  });
+}
+
+function datosResumen(d) {
+  const sn = sena(S);
+  return [
+    ['Servicio', S.nombre],
+    ['Día', d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })],
+    ['Horario', hhmm(SLOT.t) + ' a ' + hhmm(SLOT.fin) + ' (estimado)'],
+    ['Precio', S.precio ? plata(S.precio) : 'A confirmar'],
+    ['Seña', sn ? plata(sn) : 'A confirmar']
+  ];
+}
+let DIA = null;
+function confirmar(d) {
+  DIA = d;
+  const r = $('#resumen'); r.innerHTML = ''; datosResumen(d).forEach(x => r.appendChild(fila(x[0], x[1])));
+  $('#msg-conf').textContent = '';
+  mostrar('p-confirmar');
+}
+$('#atras-2').onclick = () => { elegirDia(DIA); mostrar('p-fecha'); };
+
+$('#reservar').onclick = async () => {
+  const btn = $('#reservar'), msg = $('#msg-conf');
+  btn.disabled = true; btn.textContent = 'Reservando…'; msg.textContent = '';
+  const { error: err } = await db.from('turnos').insert({
+    cliente_id: cliente.id, servicio_id: S.id,
+    inicio: new Date(ts(FECHA, SLOT.t)).toISOString(), fin: new Date(ts(FECHA, SLOT.fin)).toISOString(),
+    estado: 'pendiente', sena_monto: sena(S)
+  });
+  btn.disabled = false; btn.textContent = 'Reservar turno';
+  if (err) {
+    msg.textContent = err.code === '23P01' ? 'Ese horario acaba de ser tomado. Vuelve atrás y elige otro.'
+      : /cupo|turno permitido/i.test(err.message || '') ? 'No quedan lugares para este servicio en ese horario. Vuelve atrás y elige otro.'
+      : 'No pudimos reservar el turno. Revisa tu conexión y vuelve a intentar.';
+    return;
+  }
+  const r = $('#resumen-final'); r.innerHTML = ''; datosResumen(DIA).forEach(x => r.appendChild(fila(x[0], x[1])));
+  if (WHATSAPP) {
+    const w = $('#wsp');
+    w.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Hola, soy ' + cliente.nombre + '. Reservé turno para ' + S.nombre + ' el ' + DIA.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' a las ' + hhmm(SLOT.t) + '.');
+    w.hidden = false;
+  }
+  mostrar('p-listo');
+};
+
+iniciar();
+</script>
+</body>
+</html>
