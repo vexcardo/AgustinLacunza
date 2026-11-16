@@ -171,6 +171,8 @@ function slotsDelDia(fecha, dow, ocupados) {
   const fr = HOR.filter(h => h.dia_semana === dow).sort((a, b) => mins(a.desde) - mins(b.desde));
   if (!fr.length) return [];
   const finDia = mins(fr[fr.length - 1].hasta), cup = CUP[S.categoria] || {}, out = [];
+  const base = ts(fecha, 0), usados = { m: 0, t: 0 };   // turnos ya tomados de esta categoría: mañana (antes de las 13) y tarde
+  ocupados.forEach(o => { if (o.c === S.categoria) (o.i - base < 780 * 60000 ? usados.m++ : usados.t++); });
   fr.forEach(f => {
     const hasta = mins(f.hasta), limite = S.categoria === 'decoloracion' ? finDia : hasta;
     for (let t = mins(f.desde); t < hasta; t += 30) {
@@ -178,6 +180,8 @@ function slotsDelDia(fecha, dow, ocupados) {
       if (fin > limite) break;
       if (cup.primer_horario && t < mins(cup.primer_horario)) continue;
       if (cup.ultimo_horario && t > mins(cup.ultimo_horario)) continue;
+      const lim = t < 780 ? cup.cupo_manana : cup.cupo_tarde;
+      if (lim != null && usados[t < 780 ? 'm' : 't'] >= lim) continue;
       const i = ts(fecha, t), fn = ts(fecha, fin);
       if (i < Date.now() + 3600000) continue;
       if (ocupados.some(o => i < o.f && fn > o.i)) continue;
@@ -193,7 +197,7 @@ async function elegirDia(d) {
   $('#f-titulo-dia').textContent = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
   const { data, error: err } = await db.rpc('turnos_ocupados', { dia: FECHA });
   if (err) { msg.textContent = 'No pudimos ver los horarios. Vuelve a intentar.'; return; }
-  const ocupados = (data || []).map(o => ({ i: new Date(o.inicio).getTime(), f: new Date(o.fin).getTime() }));
+  const ocupados = (data || []).map(o => ({ i: new Date(o.inicio).getTime(), f: new Date(o.fin).getTime(), c: o.categoria }));
   const slots = slotsDelDia(FECHA, d.getDay(), ocupados);
   if (!slots.length) { msg.textContent = 'No hay horarios disponibles ese día para este servicio. Prueba con otro día.'; return; }
   slots.forEach(s => {
