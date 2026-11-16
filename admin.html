@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Panel | Agustín Laurenza</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&family=Mrs+Saint+Delafield&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+.adm{max-width:860px;margin:0 auto;padding:28px 20px 64px}
+.login{max-width:380px;margin:12vh auto 0}
+.cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.cab .firma-chica{font-size:2.6rem}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--linea);margin-bottom:22px}
+.tabs button{font:inherit;background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px;color:var(--gris);cursor:pointer}
+.tabs button.act{color:var(--carbon);border-bottom-color:var(--carbon);font-weight:500}
+.nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.nav input,.cmp input,.cmp select{font:inherit;padding:9px 10px;border:1px solid var(--linea);border-radius:8px;background:var(--blanco);color:var(--carbon);width:100%}
+.nav input{width:auto}
+.btn-sm{display:inline-block;width:auto;padding:8px 16px;font-size:.88rem}
+.dia-tit{font-size:1.15rem;font-weight:500;margin:14px 0 14px;text-transform:capitalize}
+.turno{display:grid;grid-template-columns:104px 1fr;gap:12px;background:var(--blanco);border:1px solid var(--linea);border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.turno.cancelado{opacity:.55}
+.t-hora{font-weight:500}
+.det{font-size:.88rem;color:var(--gris);margin-top:3px}
+.badge{display:inline-block;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;padding:2px 9px;border-radius:99px;border:1px solid var(--linea);color:var(--gris);margin-left:6px}
+.pendiente .badge{border-color:var(--champagne);color:#7d6a4d}
+.confirmado .badge,.completado .badge{border-color:var(--carbon);color:var(--carbon)}
+.t-acc{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.diag-box{margin-top:10px;padding:10px 12px;background:var(--perla);border-radius:8px;font-size:.88rem}
+.diag-box div{padding:2px 0}
+.card{background:var(--blanco);border:1px solid var(--linea);border-radius:10px;padding:16px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.cmp{display:block;font-size:.8rem;color:var(--gris)}
+.cmp span{display:block;margin-bottom:4px}
+.cmp.chk{display:flex;align-items:center;gap:8px;padding-top:20px}
+.cmp.chk input{width:auto}
+.vacio{color:var(--gris);padding:18px 0}
+@media(max-width:520px){.turno{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="adm">
+
+  <section id="p-login" class="login" hidden>
+    <p class="firma-chica" style="text-align:center">Laurenza</p>
+    <h1 style="text-align:center">Panel del salón</h1>
+    <form id="f-login">
+      <div class="campo"><label for="email">Email</label><input id="email" type="email" autocomplete="username"></div>
+      <div class="campo"><label for="pass">Contraseña</label><input id="pass" type="password" autocomplete="current-password"></div>
+      <button class="btn btn-solido" type="submit">Entrar</button>
+      <p class="msg" id="msg-login" role="alert"></p>
+    </form>
+  </section>
+
+  <section id="p-panel" hidden>
+    <header class="cab"><span class="firma-chica">Laurenza</span><button class="link" id="salir" type="button">Cerrar sesión</button></header>
+    <nav class="tabs" id="tabs">
+      <button data-tab="turnos" class="act" type="button">Turnos</button>
+      <button data-tab="servicios" type="button">Servicios</button>
+      <button data-tab="cupos" type="button">Cupos</button>
+    </nav>
+
+    <div id="tab-turnos">
+      <div class="nav">
+        <button class="btn btn-contorno btn-sm" id="ant" type="button" aria-label="Día anterior">&larr;</button>
+        <input type="date" id="t-fecha" aria-label="Fecha">
+        <button class="btn btn-contorno btn-sm" id="sig" type="button" aria-label="Día siguiente">&rarr;</button>
+        <button class="btn btn-contorno btn-sm" id="hoy" type="button">Hoy</button>
+      </div>
+      <p class="dia-tit" id="t-titulo"></p>
+      <div id="t-lista"></div>
+    </div>
+
+    <div id="tab-servicios" hidden>
+      <div id="s-lista"></div>
+      <button class="btn btn-contorno btn-sm" id="s-nuevo" type="button">Agregar servicio</button>
+      <p class="det">Los servicios nuevos se crean desactivados. Completalos y activalos para que aparezcan en la web.</p>
+    </div>
+
+    <div id="tab-cupos" hidden>
+      <p class="det" style="margin-bottom:14px">Vacío significa sin límite. Los horarios límite son el primer y el último inicio permitido para cada categoría.</p>
+      <div id="c-lista"></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const TZ = 'America/Argentina/Buenos_Aires';
+const pad = n => String(n).padStart(2, '0');
+const fechaStr = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const hora = x => new Date(x).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ });
+const plata = n => n == null ? '—' : '$' + Number(n).toLocaleString('es-AR');
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const mostrar = id => ['p-login', 'p-panel'].forEach(x => $('#' + x).hidden = x !== id);
+let FECHA = fechaStr(new Date());
+
+/* ---------- acceso ---------- */
+$('#f-login').onsubmit = async e => {
+  e.preventDefault();
+  const { error } = await db.auth.signInWithPassword({ email: $('#email').value.trim(), password: $('#pass').value });
+  if (error) { $('#msg-login').textContent = 'Email o contraseña incorrectos.'; return; }
+  entrar();
+};
+$('#salir').onclick = async () => { await db.auth.signOut(); mostrar('p-login'); };
+async function iniciar() { const { data } = await db.auth.getSession(); data.session ? entrar() : mostrar('p-login'); }
+function entrar() { mostrar('p-panel'); cargarTurnos(); }
+
+$('#tabs').onclick = e => {
+  const t = e.target.dataset.tab; if (!t) return;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('act', b === e.target));
+  ['turnos', 'servicios', 'cupos'].forEach(x => $('#tab-' + x).hidden = x !== t);
+  if (t === 'turnos') cargarTurnos(); if (t === 'servicios') cargarServicios(); if (t === 'cupos') cargarCupos();
+};
+
+/* ---------- turnos ---------- */
+const mover = n => { const d = new Date(FECHA + 'T12:00:00'); d.setDate(d.getDate() + n); FECHA = fechaStr(d); cargarTurnos(); };
+$('#ant').onclick = () => mover(-1); $('#sig').onclick = () => mover(1);
+$('#hoy').onclick = () => { FECHA = fechaStr(new Date()); cargarTurnos(); };
+$('#t-fecha').onchange = e => { if (e.target.value) { FECHA = e.target.value; cargarTurnos(); } };
+
+const ETIQ = { textura: 'Textura', color_natural: 'Color natural', estado: 'Estado actual', ultimo_tratamiento: 'Último tratamiento', largo: 'Largo', ultimo_corte: 'Último corte', caida: 'Se cae el cabello', puntas: 'Puntas', cuero_cabelludo: 'Cuero cabelludo', preocupacion: 'Preocupación', kscan: 'K-Scan' };
+
+async function cargarTurnos() {
+  $('#t-fecha').value = FECHA;
+  $('#t-titulo').textContent = new Date(FECHA + 'T12:00:00-03:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ });
+  const lista = $('#t-lista'); lista.textContent = 'Cargando…';
+  const ini = new Date(FECHA + 'T00:00:00-03:00'), fin = new Date(ini.getTime() + 86400000);
+  const { data, error } = await db.from('turnos')
+    .select('*, clientes(nombre,celular), servicios(nombre)')
+    .gte('inicio', ini.toISOString()).lt('inicio', fin.toISOString()).order('inicio');
+  lista.textContent = '';
+  if (error) { lista.append(el('p', 'vacio', 'No pudimos cargar los turnos.')); return; }
+  if (!data.length) { lista.append(el('p', 'vacio', 'No hay turnos este día.')); return; }
+  data.forEach(t => lista.append(tarjeta(t)));
+}
+
+function tarjeta(t) {
+  const c = t.clientes || {}, s = t.servicios || {};
+  const a = el('article', 'turno ' + t.estado);
+  a.append(el('div', 't-hora', hora(t.inicio) + ' a ' + hora(t.fin)));
+  const m = el('div'); a.append(m);
+  const l1 = el('div'); l1.append(el('strong', null, c.nombre || 'Sin nombre'), el('span', 'badge', t.estado)); m.append(l1);
+  m.append(el('div', 'det', (s.nombre || '') + ' · Cel. ' + (c.celular || '—')));
+  m.append(el('div', 'det', 'Seña ' + plata(t.sena_monto) + ' · ' + (t.sena_pagada ? 'pagada' : 'pendiente')));
+  const acc = el('div', 't-acc'); m.append(acc);
+  const box = el('div', 'diag-box'); box.hidden = true; m.append(box);
+  const act = (txt, cambios, conf) => {
+    const b = el('button', 'btn btn-contorno btn-sm', txt); b.type = 'button';
+    b.onclick = async () => {
+      if (conf && !confirm(conf)) return;
+      const { error } = await db.from('turnos').update(cambios).eq('id', t.id);
+      if (error) alert('No se pudo actualizar el turno.'); else cargarTurnos();
+    };
+    acc.append(b);
+  };
+  const vivo = t.estado === 'pendiente' || t.estado === 'confirmado';
+  if (vivo && !t.sena_pagada) act('Seña pagada', { sena_pagada: true, estado: 'confirmado' });
+  if (vivo) act('Completado', { estado: 'completado' });
+  if (vivo) act('Cancelar', { estado: 'cancelado' }, 'Cancelar el turno de ' + (c.nombre || 'esta clienta') + '?');
+  const d = el('button', 'btn btn-contorno btn-sm', 'Diagnóstico'); d.type = 'button';
+  d.onclick = async () => {
+    if (!box.hidden) { box.hidden = true; return; }
+    box.textContent = 'Cargando…'; box.hidden = false;
+    const { data } = await db.from('diagnosticos').select('respuestas').eq('cliente_id', t.cliente_id).order('created_at', { ascending: false }).limit(1);
+    box.textContent = '';
+    if (!data || !data.length) { box.textContent = 'Esta clienta no completó el diagnóstico.'; return; }
+    Object.entries(data[0].respuestas).forEach(([k, v]) => { const r = el('div'); r.append(el('strong', null, (ETIQ[k] || k) + ': '), v); box.append(r); });
+  };
+  acc.append(d);
+  const cel = (c.celular || '').replace(/\D/g, '');
+  if (cel.length === 10) { const w = el('a', 'btn btn-contorno btn-sm', 'WhatsApp'); w.href = 'https://wa.me/549' + cel; w.target = '_blank'; w.rel = 'noopener'; acc.append(w); }
+  return a;
+}
+
+/* ---------- formularios genéricos ---------- */
+const campo = (lbl, inp, cls) => { const w = el('label', 'cmp ' + (cls || '')); w.append(el('span', null, lbl), inp); return w; };
+const num = (v, step) => { const i = el('input'); i.type = 'number'; i.min = 0; i.step = step || 1; i.value = v == null ? '' : v; return i; };
+const txt = v => { const i = el('input'); i.type = 'text'; i.value = v || ''; return i; };
+const hm = v => { const i = el('input'); i.type = 'time'; i.value = v ? v.slice(0, 5) : ''; return i; };
+const sel = (opts, v) => { const s = el('select'); opts.forEach(([k, t]) => { const o = el('option', null, t); o.value = k; s.append(o); }); s.value = v; return s; };
+const nulo = i => i.value === '' ? null : Number(i.value);
+
+/* ---------- servicios ---------- */
+const CATS = [['express', 'Express'], ['tintura', 'Tintura'], ['decoloracion', 'Decoloración']];
+async function cargarServicios() {
+  const lista = $('#s-lista'); lista.textContent = 'Cargando…';
+  const { data, error } = await db.from('servicios').select('*').order('orden');
+  lista.textContent = '';
+  if (error) { lista.append(el('p', 'vacio', 'No pudimos cargar los servicios.')); return; }
+  window.SERV_MAX = data.reduce((m, s) => Math.max(m, s.orden), 0);
+  data.forEach(s => {
+    const card = el('div', 'card'), g = el('div', 'grid');
+    const f = { nombre: txt(s.nombre), categoria: sel(CATS, s.categoria), dmin: num(s.duracion_min, 30), dmax: num(s.duracion_max, 30), precio: num(s.precio, 1000), stipo: sel([['porcentaje', 'Porcentaje'], ['fijo', 'Monto fijo']], s.sena_tipo), sval: num(s.sena_valor, 1) };
+    const act = el('input'); act.type = 'checkbox'; act.checked = s.activo;
+    g.append(campo('Nombre', f.nombre), campo('Categoría', f.categoria), campo('Duración mín. (min)', f.dmin), campo('Duración máx. (min)', f.dmax), campo('Precio ($)', f.precio), campo('Tipo de seña', f.stipo), campo('Valor de seña', f.sval), campo('Activo', act, 'chk'));
+    const b = el('button', 'btn btn-solido btn-sm', 'Guardar'); b.type = 'button'; b.style.marginTop = '12px';
+    b.onclick = async () => {
+      if (!f.nombre.value.trim() || !(nulo(f.dmin) > 0)) { alert('Completa el nombre y la duración mínima.'); return; }
+      const { error } = await db.from('servicios').update({ nombre: f.nombre.value.trim(), categoria: f.categoria.value, duracion_min: nulo(f.dmin), duracion_max: nulo(f.dmax), precio: nulo(f.precio), sena_tipo: f.stipo.value, sena_valor: nulo(f.sval) ?? 0, activo: act.checked }).eq('id', s.id);
+      b.textContent = error ? 'Error, reintenta' : 'Guardado'; setTimeout(() => b.textContent = 'Guardar', 1800);
+    };
+    card.append(g, b); lista.append(card);
+  });
+}
+$('#s-nuevo').onclick = async () => {
+  const { error } = await db.from('servicios').insert({ nombre: 'Nuevo servicio', categoria: 'express', duracion_min: 60, duracion_max: 60, activo: false, orden: (window.SERV_MAX || 0) + 1 });
+  if (error) alert('No se pudo crear el servicio.'); else cargarServicios();
+};
+
+/* ---------- cupos ---------- */
+async function cargarCupos() {
+  const lista = $('#c-lista'); lista.textContent = 'Cargando…';
+  const { data, error } = await db.from('cupos').select('*');
+  lista.textContent = '';
+  if (error) { lista.append(el('p', 'vacio', 'No pudimos cargar los cupos.')); return; }
+  CATS.forEach(([k, nombre]) => {
+    const c = data.find(x => x.categoria === k) || {};
+    const card = el('div', 'card'); card.append(el('strong', null, nombre));
+    const g = el('div', 'grid'); g.style.marginTop = '10px';
+    const f = { m: num(c.cupo_manana), t: num(c.cupo_tarde), p: hm(c.primer_horario), u: hm(c.ultimo_horario) };
+    g.append(campo('Cupo por mañana', f.m), campo('Cupo por tarde', f.t), campo('Primer horario', f.p), campo('Último horario', f.u));
+    const b = el('button', 'btn btn-solido btn-sm', 'Guardar'); b.type = 'button'; b.style.marginTop = '12px';
+    b.onclick = async () => {
+      const { error } = await db.from('cupos').update({ cupo_manana: nulo(f.m), cupo_tarde: nulo(f.t), primer_horario: f.p.value || null, ultimo_horario: f.u.value || null }).eq('categoria', k);
+      b.textContent = error ? 'Error, reintenta' : 'Guardado'; setTimeout(() => b.textContent = 'Guardar', 1800);
+    };
+    card.append(g, b); lista.append(card);
+  });
+}
+
+iniciar();
+</script>
+</body>
+</html>
